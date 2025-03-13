@@ -32,12 +32,49 @@ def sample_function(x):
     """Given an x value (input) will output the correct value of the function (f(x))."""
     return x*x+math.sin(x)
 
-def random_function(x,lipschitz_constant,previous_coordinates='None',next_coordinates='None'):
-    if type(previous_coordinates)==set:
-        print('Woo!')
-        random.uniform(y_low,y_high)
+def random_function(x,lipschitz_constant,previous_coordinates=None,next_coordinates=None):
+    """Given an x value, the Lipschitz constant, and (optionally) a pair of tuples each of the form (x_0,y_0),
+    produces a random output for y such that (x,y), when added to the known coordinates, will still adhere to the Lipschitz constraint.
+    The variables previous_coordinates and next_coordinates should represent the nearest known coordinates to the left and right
+    of x respectively."""
+    y_low=-50
+    y_high=50
+    if type(previous_coordinates)==tuple:
+        if type(next_coordinates)==tuple:
+            y_high=min(
+                previous_coordinates[1]+lipschitz_constant*(x-previous_coordinates[0]),
+                next_coordinates[1]-lipschitz_constant*(x-next_coordinates[0]))
+            y_low=max(
+                previous_coordinates[1]-lipschitz_constant*(x-previous_coordinates[0]),
+                next_coordinates[1]+lipschitz_constant*(x-next_coordinates[0])
+            )
+        else:
+            y_high=previous_coordinates[1]+lipschitz_constant*(x-previous_coordinates[0])
+            y_low=previous_coordinates[1]-lipschitz_constant*(x-previous_coordinates[0])
+    elif type(next_coordinates)==tuple:
+        y_high=next_coordinates[1]-lipschitz_constant*(x-next_coordinates[0])
+        y_low=next_coordinates[1]+lipschitz_constant*(x-next_coordinates[0])
+    print(y_low,y_high)
+    return random.uniform(y_low,y_high)
 
-    
+
+
+def radius_of_information(greatest_max,least_max):
+    """Returns the radius of information given the greatest possible maximum and the smallest possible maximum on the interval."""
+    return (greatest_max-least_max)/2
+
+def get_results(known_y, interval_y):
+    """Given two arrays consisting of the known y values and the greatest y values on each interval, produces a row for the results
+    dataframe and a check to see if the program should be terminated early."""
+    least_max=max(known_y)
+    greatest_max=max(interval_y)
+    greatest_max=max(least_max,greatest_max)
+    roi=radius_of_information(greatest_max,least_max)
+    finished=False
+    if roi==0:
+        finished=True
+    return ([roi,least_max,greatest_max],finished)
+
 
 def is_fraction(string):
     """Tests to see if a user input is a valid number by checking if it is a fraction or float."""
@@ -47,18 +84,68 @@ def is_fraction(string):
     except ValueError:
         return False
 
-def radius_of_information(max,min):
-    return (max-min)/2
+def next_x(interval,lipschitz_constant,known_x,known_y,interval_y):
+    """Given information on the interval, the Lipschitz constant, the known coordinates, and the greatest possible y values between
+    any pair of points, produces a pair of the form (new x coordinate, index in which to insert it in known_x)"""
+    interval_index=np.argmax(interval_y)
+    if interval_index==0:
+        next_x_value = (2*interval[0]+known_x[0])/2
+    elif interval_index==len(interval_y)-1:
+        next_x_value = (2*interval[1]+known_x[-1])/2
+    else:
+        next_x_value = (known_y[interval_index]-known_y[interval_index-1]+
+                        lipschitz_constant*(known_x[interval_index]+known_x[interval_index-1]))/(2*lipschitz_constant)
 
-def adaptive_strategy(interval,lipschitz_constant,number_of_x,function_type):
+    return (next_x_value,interval_index)
+
+def next_y(x,x_index, lipschitz_constant,known_x,known_y, function_type):
+    if function_type=='sample':
+        return sample_function(x) 
+    elif function_type=='optimal':
+        if len(known_y)==0:
+            return random.uniform(-50,50)
+        else:
+            return known_y[0]
+    elif function_type=='random':
+        if len(known_y)==0:
+            return random.uniform(-50,50)
+        if x_index==0:
+            return random_function(x,lipschitz_constant,next_coordinates=(known_x[0],known_y[0]))
+        elif x_index==len(known_x)-1:
+            return random_function(x,lipschitz_constant,previous_coordinates=(known_x[-1],known_y[-1]))
+        else:
+            return random_function(x,
+                                   lipschitz_constant,
+                                   previous_coordinates=(known_x[x_index-1],known_y[x_index-1]),
+                                   next_coordinates=(known_x[x_index],known_y[x_index]))
+    
     pass
 
-def non_adaptive_strategy():
-    pass
+def adaptive_strategy(interval,lipschitz_constant,number_of_x,function_type,results_df):
+    """Selects x values turn by turn one at a time instead of all at once."""
+
+    y_optimal=random.uniform(-20,20)
+
+    # Eventually we may add the capability to select some x
+    x_optimal=True
+    for turn in range(number_of_x):
+        pass
+
+
+def non_adaptive_strategy(interval,lipschitz_constant,number_of_x,function_type,results_df):
+    print("This part of the program is still being worked on.")
 
 def main():
     """The main code."""
 
+
+    print(random_function(3,5,(1,2),(8,7)))
+
+    array1=np.array([9,4,7,10.3625])
+    print(array1)
+    print(type(array1))
+
+    print(np.insert(array1,2,14.44))
 
     # Enter the interval and Lipschitz constant here.  All calculations will include the endpoints of the interval.
     interval=(2,65)
@@ -78,10 +165,24 @@ def main():
  
     function_type='random'
 
+
+
+
+
+    df=pd.DataFrame(columns=['A','B'])
+    df.loc[1]=[5,'Yes!']
+    print(df)
+
+
+
+    results_df=pd.DataFrame(columns=['RoI','Least Maximum','Greatest Maximum'])
+    results_df.index +=1
+    results_df.index.name='x Chosen'
+
     if adaptive==True:
-        adaptive_strategy(interval,lipschitz_constant,number_of_x,function_type)
+        adaptive_strategy(interval,lipschitz_constant,number_of_x,function_type,results_df)
     else:
-        non_adaptive_strategy(interval,lipschitz_constant,number_of_x,function_type)
+        non_adaptive_strategy(interval,lipschitz_constant,number_of_x,function_type,results_df)
 
 
 
