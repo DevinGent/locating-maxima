@@ -28,6 +28,46 @@ class Graph:
             """Draws the graph onto the given axis."""
             axis.plot(self.xs,self.ys)
 
+
+class Coordinates:
+    """
+    Maintains four arrays and methods to update them. One for the known x values, one for the known y values, 
+    one for the x values where the function could reach a maximum on each interval, and one for the corresponding maximum y values."""
+    def __init__(self, xs: np.array, ys:np.array, interval_xs: np.array, interval_ys:np.array):
+        self.known_x=xs
+        self.known_y=ys
+        self.interval_x=interval_xs
+        self.interval_y=interval_ys
+
+    def update_arrays(self, x, y, index, interval,lipschitz_constant):
+        """Takes an x and y value to insert in the known value arrays as well as an index in which to insert them, then updates
+        all the arrays."""
+
+        if index==0:
+            if index==len(self.known_x)-1:
+                self.interval_x=np.array(interval)
+                self.interval_y=np.array([y-lipschitz_constant*(interval[0]-x),
+                                           y+lipschitz_constant*(interval[1]-x)])
+            else:
+                self.interval_x=np.insert(self.interval_x,1,(self.known_y[0]-y+lipschitz_constant*(self.known_x[0]+x))/(2*lipschitz_constant))
+                self.interval_y=np.insert(self.interval_y,1,(self.known_y[0]+y+lipschitz_constant*(self.known_x[0]-x))/2)
+                self.interval_y[0]=y-lipschitz_constant*(interval[0]-x)
+
+        elif index==len(self.known_x)-1:
+            self.interval_x=np.insert(self.interval_x,-1,(y-self.known_y[-1]+lipschitz_constant*(self.known_x[-1]+x))/(2*lipschitz_constant))
+            self.interval_y=np.insert(self.interval_y,-1,(self.known_y[-1]+y+lipschitz_constant*(x-self.known_x[-1]))/2)
+            self.interval_y[-1]=y+lipschitz_constant*(interval[1]-x)
+        
+        else:
+            self.interval_x=np.insert(self.interval_x,index,(y-self.known_y[index-1]+lipschitz_constant*(self.known_x[index-1]+x))/(2*lipschitz_constant))
+            self.interval_x[index+1]=(self.known_y[index]-y+lipschitz_constant*(self.known_x[index]+x))/(2*lipschitz_constant)
+            self.interval_y=np.insert(self.interval_x,index,(self.known_y[index-1]+y+lipschitz_constant*(x-self.known_x[-1]))/2)
+            self.interval_y[index+1]=(self.known_y[index]+y+lipschitz_constant*(self.known_x[index]-x))/2
+
+        self.known_x=np.insert(self.known_x,index,x)
+        self.known_y=np.insert(self.known_y,index,y)
+
+
 def sample_function(x):
     """Given an x value (input) will output the correct value of the function (f(x))."""
     return x*x+math.sin(x)
@@ -39,8 +79,8 @@ def random_function(x,lipschitz_constant,previous_coordinates=None,next_coordina
     of x respectively."""
     y_low=-50
     y_high=50
-    if type(previous_coordinates)==tuple:
-        if type(next_coordinates)==tuple:
+    if previous_coordinates is not None:
+        if next_coordinates is not None:
             y_high=min(
                 previous_coordinates[1]+lipschitz_constant*(x-previous_coordinates[0]),
                 next_coordinates[1]-lipschitz_constant*(x-next_coordinates[0]))
@@ -51,7 +91,7 @@ def random_function(x,lipschitz_constant,previous_coordinates=None,next_coordina
         else:
             y_high=previous_coordinates[1]+lipschitz_constant*(x-previous_coordinates[0])
             y_low=previous_coordinates[1]-lipschitz_constant*(x-previous_coordinates[0])
-    elif type(next_coordinates)==tuple:
+    elif next_coordinates is not None:
         y_high=next_coordinates[1]-lipschitz_constant*(x-next_coordinates[0])
         y_low=next_coordinates[1]+lipschitz_constant*(x-next_coordinates[0])
     print(y_low,y_high)
@@ -118,17 +158,21 @@ def next_y(x,x_index, lipschitz_constant,known_x,known_y, function_type):
                                    lipschitz_constant,
                                    previous_coordinates=(known_x[x_index-1],known_y[x_index-1]),
                                    next_coordinates=(known_x[x_index],known_y[x_index]))
-    
-    pass
+
 
 def adaptive_strategy(interval,lipschitz_constant,number_of_x,function_type,results_df):
     """Selects x values turn by turn one at a time instead of all at once."""
+    known_x=np.array()
+    known_y=np.array()
+    interval_y=np.array()
 
     y_optimal=random.uniform(-20,20)
 
     # Eventually we may add the capability to select some x
     x_optimal=True
     for turn in range(number_of_x):
+        x_to_insert=next_x(interval,lipschitz_constant,known_x,known_y,interval_y)
+        y_to_insert=next_y(*x_to_insert,lipschitz_constant,known_x,known_y,function_type)
         pass
 
 
