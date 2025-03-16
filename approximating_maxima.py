@@ -44,16 +44,21 @@ class Coordinates:
         all the arrays."""
 
         if index==0:
-            if index==len(self.known_x)-1:
-                self.interval_x=np.array(interval)
+            if index==len(self.known_x):
+                self.interval_x=np.array(interval,dtype=float)
                 self.interval_y=np.array([y-lipschitz_constant*(interval[0]-x),
-                                           y+lipschitz_constant*(interval[1]-x)])
+                                           y+lipschitz_constant*(interval[1]-x)],dtype=float)
             else:
+                # The dtype of the array is wrong.  I should make sure all the arrays are initiated to be float arrays.
+                print('New int:',(self.known_y[0]-y+lipschitz_constant*(self.known_x[0]+x))/(2*lipschitz_constant))
+                print(np.insert(self.interval_x,1,(self.known_y[0]-y+lipschitz_constant*(self.known_x[0]+x))/(2*lipschitz_constant)).dtype)
+                print(np.insert(self.interval_x,1,(self.known_y[0]-y+lipschitz_constant*(self.known_x[0]+x))/(2*lipschitz_constant)))
+                print(np.insert(self.interval_x,1,8))
                 self.interval_x=np.insert(self.interval_x,1,(self.known_y[0]-y+lipschitz_constant*(self.known_x[0]+x))/(2*lipschitz_constant))
                 self.interval_y=np.insert(self.interval_y,1,(self.known_y[0]+y+lipschitz_constant*(self.known_x[0]-x))/2)
                 self.interval_y[0]=y-lipschitz_constant*(interval[0]-x)
 
-        elif index==len(self.known_x)-1:
+        elif index==len(self.known_x):
             self.interval_x=np.insert(self.interval_x,-1,(y-self.known_y[-1]+lipschitz_constant*(self.known_x[-1]+x))/(2*lipschitz_constant))
             self.interval_y=np.insert(self.interval_y,-1,(self.known_y[-1]+y+lipschitz_constant*(x-self.known_x[-1]))/2)
             self.interval_y[-1]=y+lipschitz_constant*(interval[1]-x)
@@ -70,7 +75,7 @@ class Coordinates:
 
 def sample_function(x):
     """Given an x value (input) will output the correct value of the function (f(x))."""
-    return x*x+math.sin(x)
+    return x*x*x-x*x
 
 def random_function(x,lipschitz_constant,previous_coordinates=None,next_coordinates=None):
     """Given an x value, the Lipschitz constant, and (optionally) a pair of tuples each of the form (x_0,y_0),
@@ -127,11 +132,17 @@ def is_fraction(string):
 def next_x(interval,lipschitz_constant,known_x,known_y,interval_y):
     """Given information on the interval, the Lipschitz constant, the known coordinates, and the greatest possible y values between
     any pair of points, produces a pair of the form (new x coordinate, index in which to insert it in known_x)"""
+    if len(known_x)==0:
+        return((interval[0]+interval[1])/2,0)
     interval_index=np.argmax(interval_y)
+    print("New TURN!")
+    print('Interval y', interval_y)
+    print("Int index:",interval_index)
     if interval_index==0:
-        next_x_value = (2*interval[0]+known_x[0])/2
+        next_x_value = (2*interval[0]+known_x[0])/3
     elif interval_index==len(interval_y)-1:
-        next_x_value = (2*interval[1]+known_x[-1])/2
+        next_x_value = (2*interval[1]+known_x[-1])/3
+        print('Inner x is',next_x_value)
     else:
         next_x_value = (known_y[interval_index]-known_y[interval_index-1]+
                         lipschitz_constant*(known_x[interval_index]+known_x[interval_index-1]))/(2*lipschitz_constant)
@@ -160,20 +171,32 @@ def next_y(x,x_index, lipschitz_constant,known_x,known_y, function_type):
                                    next_coordinates=(known_x[x_index],known_y[x_index]))
 
 
-def adaptive_strategy(interval,lipschitz_constant,number_of_x,function_type,results_df):
+def adaptive_strategy(interval,lipschitz_constant,number_of_x,function_type):
     """Selects x values turn by turn one at a time instead of all at once."""
-    known_x=np.array()
-    known_y=np.array()
-    interval_y=np.array()
+
+    coordinates=Coordinates(np.array([],dtype=float),np.array([],dtype=float),np.array([],dtype=float),np.array([],dtype=float))
 
     y_optimal=random.uniform(-20,20)
 
     # Eventually we may add the capability to select some x
-    x_optimal=True
+    #x_optimal=True
+
     for turn in range(number_of_x):
-        x_to_insert=next_x(interval,lipschitz_constant,known_x,known_y,interval_y)
-        y_to_insert=next_y(*x_to_insert,lipschitz_constant,known_x,known_y,function_type)
-        pass
+        x_to_insert=next_x(interval,lipschitz_constant,coordinates.known_x,coordinates.known_y,coordinates.interval_y)
+        y_to_insert=next_y(*x_to_insert,lipschitz_constant,coordinates.known_x,coordinates.known_y,function_type)
+        print()
+        print("TURN", turn)
+        print("x to insert:",x_to_insert)
+        print("y to insert:",y_to_insert)
+        print('Known x:', coordinates.known_x)
+        print('Known y:', coordinates.known_y)
+        print('Interval x:',coordinates.interval_x)
+        print('Interval y:',coordinates.interval_y)
+        print('y len',len(coordinates.known_y))
+
+        coordinates.update_arrays(x_to_insert[0],y_to_insert,x_to_insert[1],interval,lipschitz_constant)
+    print(coordinates.known_x)
+    print(coordinates.known_y)
 
 
 def non_adaptive_strategy(interval,lipschitz_constant,number_of_x,function_type,results_df):
@@ -192,8 +215,8 @@ def main():
     print(np.insert(array1,2,14.44))
 
     # Enter the interval and Lipschitz constant here.  All calculations will include the endpoints of the interval.
-    interval=(2,65)
-    lipschitz_constant=3
+    interval=(0,1)
+    lipschitz_constant=1
 
     # Set the number of x values that will be chosen.
     number_of_x=5
@@ -207,11 +230,11 @@ def main():
     # 'sample' - y values are decided from a pre-decided function (which can be edited in the sample_function above).
     # 'optimal' - y values are always those which maximize the radius of information (and weaken our prediction of maxima and minima) 
  
-    function_type='random'
+    function_type='sample'
 
 
 
-
+    adaptive_strategy(interval,lipschitz_constant,number_of_x,function_type)
 
     df=pd.DataFrame(columns=['A','B'])
     df.loc[1]=[5,'Yes!']
