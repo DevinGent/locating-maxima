@@ -11,22 +11,8 @@ import numpy as np
 import pandas as pd
 import math
 import random
-from bisect import bisect_left
+import copy
 
-
-
-class Graph:
-    """
-    The plotting data for an axis along with a function to plot to a specified axis.
-    """
-    def __init__(self, xs: np.array, ys:np.array, interval: tuple):
-        self.xs=xs
-        self.ys=ys
-        self.interval=interval
-
-    def draw(self, axis):
-            """Draws the graph onto the given axis."""
-            axis.plot(self.xs,self.ys)
 
 
 class Coordinates:
@@ -44,12 +30,11 @@ class Coordinates:
         all the arrays."""
 
         if index==0:
-            if index==len(self.known_x):
+            if len(self.known_x)==0:
                 self.interval_x=np.array(interval,dtype=float)
                 self.interval_y=np.array([y-lipschitz_constant*(interval[0]-x),
                                            y+lipschitz_constant*(interval[1]-x)],dtype=float)
             else:
-                # The dtype of the array is wrong.  I should make sure all the arrays are initiated to be float arrays.
                 print('New int:',(self.known_y[0]-y+lipschitz_constant*(self.known_x[0]+x))/(2*lipschitz_constant))
                 print(np.insert(self.interval_x,1,(self.known_y[0]-y+lipschitz_constant*(self.known_x[0]+x))/(2*lipschitz_constant)).dtype)
                 print(np.insert(self.interval_x,1,(self.known_y[0]-y+lipschitz_constant*(self.known_x[0]+x))/(2*lipschitz_constant)))
@@ -66,11 +51,30 @@ class Coordinates:
         else:
             self.interval_x=np.insert(self.interval_x,index,(y-self.known_y[index-1]+lipschitz_constant*(self.known_x[index-1]+x))/(2*lipschitz_constant))
             self.interval_x[index+1]=(self.known_y[index]-y+lipschitz_constant*(self.known_x[index]+x))/(2*lipschitz_constant)
-            self.interval_y=np.insert(self.interval_x,index,(self.known_y[index-1]+y+lipschitz_constant*(x-self.known_x[-1]))/2)
+            self.interval_y=np.insert(self.interval_y,index,(self.known_y[index-1]+y+lipschitz_constant*(x-self.known_x[index-1]))/2)
             self.interval_y[index+1]=(self.known_y[index]+y+lipschitz_constant*(self.known_x[index]-x))/2
 
         self.known_x=np.insert(self.known_x,index,x)
         self.known_y=np.insert(self.known_y,index,y)
+
+    def draw(self, axis):
+        """Draws a graph of the currently known points onto the target axis. The figure must still be shown to display."""
+        axis.axvline(self.interval_x[0],color='red',linestyle='dashed')
+        axis.axvline(self.interval_x[-1],color='red',linestyle='dashed')
+        axis.scatter(self.known_x,self.known_y)
+        # We now combine the interval and known points to create a line graph.
+        zipped=zip(np.concatenate([self.interval_x,self.known_x]),np.concatenate([self.interval_y,self.known_y]))
+        zipped=sorted(list(zipped))
+        x,y= zip(*zipped)
+        axis.plot(x,y, linestyle='dashed')
+        points_known=len(self.known_x)
+        if points_known==1:
+            axis.set_title("{} Point Known".format(points_known))
+        else:
+            axis.set_title("{} Points Known".format(points_known))
+
+
+
 
 
 def sample_function(x):
@@ -111,6 +115,7 @@ def radius_of_information(greatest_max,least_max):
 def get_results(known_y, interval_y):
     """Given two arrays consisting of the known y values and the greatest y values on each interval, produces a row for the results
     dataframe and a check to see if the program should be terminated early."""
+    known_points=len(known_y)
     least_max=max(known_y)
     greatest_max=max(interval_y)
     greatest_max=max(least_max,greatest_max)
@@ -118,7 +123,7 @@ def get_results(known_y, interval_y):
     finished=False
     if roi==0:
         finished=True
-    return ([roi,least_max,greatest_max],finished)
+    return ([known_points,roi,least_max,greatest_max],finished)
 
 
 def is_fraction(string):
@@ -174,29 +179,114 @@ def next_y(x,x_index, lipschitz_constant,known_x,known_y, function_type):
 def adaptive_strategy(interval,lipschitz_constant,number_of_x,function_type):
     """Selects x values turn by turn one at a time instead of all at once."""
 
+    # Keeps track of the known coordinates and intersections.
     coordinates=Coordinates(np.array([],dtype=float),np.array([],dtype=float),np.array([],dtype=float),np.array([],dtype=float))
-
+    # Holds rows which will be converted into a dataframe.
+    result_rows=[]
+    # Holds previous coordinates so that they can be drawn at the end.
+    graphs=[]
+    # Allows the process to terminate prematurely if the maximum is located.
+    stop=False
+    # Sets a fixed value for the y value which is optimal.
     y_optimal=random.uniform(-20,20)
 
-    # Eventually we may add the capability to select some x
-    #x_optimal=True
+    # Eventually we may add the capability to select custom x instead of just optimal x.
+    # x_optimal=True
 
+    # number_of_x holds the total number of points to choose.  One by one an x value is chosen, the corresponding y value is found
+    # and the coordinates are updated. 
     for turn in range(number_of_x):
+        # Determining the next x value to add.
         x_to_insert=next_x(interval,lipschitz_constant,coordinates.known_x,coordinates.known_y,coordinates.interval_y)
-        y_to_insert=next_y(*x_to_insert,lipschitz_constant,coordinates.known_x,coordinates.known_y,function_type)
-        print()
-        print("TURN", turn)
-        print("x to insert:",x_to_insert)
-        print("y to insert:",y_to_insert)
-        print('Known x:', coordinates.known_x)
-        print('Known y:', coordinates.known_y)
-        print('Interval x:',coordinates.interval_x)
-        print('Interval y:',coordinates.interval_y)
-        print('y len',len(coordinates.known_y))
 
+        # Determining what the paired y value should be.
+        y_to_insert=next_y(*x_to_insert,lipschitz_constant,coordinates.known_x,coordinates.known_y,function_type)
+
+        # Updating the arrays of the coordinate class object.
         coordinates.update_arrays(x_to_insert[0],y_to_insert,x_to_insert[1],interval,lipschitz_constant)
+
+        # Adding a copy of the current coordinate class object to the list of graphs.
+        graphs.append(copy.copy(coordinates))
+
+        # Obtaining the next row of the dataframe and checking if the loop can be terminated early.
+        (new_row,stop)=get_results(coordinates.known_y,coordinates.interval_y)
+
+        # Adding the new row to the list of rows.
+        result_rows.append(new_row)
+
+        # Checking if the process should be ended early.
+        if stop==True:
+            break
+    
+    # Constructing a dataframe from the rows of results and indexing by the number of known points.
+    results_df=pd.DataFrame(result_rows,columns=['Known Points','RoI','Least Possible Maximum','Greatest Possible Maximum'])
+    results_df.set_index('Known Points',inplace=True)    
+
+    # Displaying the dataframe.
+    print(results_df.head(number_of_x))
+
     print(coordinates.known_x)
     print(coordinates.known_y)
+
+    # Determining the number of graphs to plot.  Up to 8 can be plotted in a single figure.
+    number_of_graphs=len(graphs)
+    # Determining how many full figures will be plotted.
+    full_graphs=number_of_graphs//8
+    # Determining how many graphs should appear in the partial figure (if any)
+    number_of_graphs=number_of_graphs%8
+
+    # For each full window/figure a figure and axes are created and then displayed.
+    for window in range(full_graphs):
+        # Each full window should include two rows of graphs with four graphs in each row.
+        fig, axs = plt.subplots(2,4,figsize=(12,6))
+        # Flatten the axes so they can be iterated through numerically more easily.
+        axs=axs.flatten()
+        # Drawing each of the graphs.
+        for i in range(len(axs)):
+            graphs[i+8*window].draw(axs[i])
+        # All the graphs should have the same x and y limits. We take these limits from the first graph of the first window.
+        if window==0:
+            xlimits=axs[0].get_xlim()
+            ylimits=axs[0].get_ylim()
+        # Setting the x and y limits of all the graphs on the current figure.
+        plt.setp(axs, ylim=ylimits,xlim=xlimits)
+        plt.tight_layout()
+        # Displaying without blocking so the user can flip between multiple windows and compare.
+        plt.show(block=False)
+
+    # The layout of the last figure is determined by how many graphs remain.
+    if number_of_graphs<3:
+        fig, axs = plt.subplots(1,number_of_graphs,figsize=(12,6))
+    elif number_of_graphs<5:
+        fig, axs = plt.subplots(2,2,figsize=(12,6))
+    elif number_of_graphs<7:
+        fig, axs = plt.subplots(2,3,figsize=(12,6))
+    elif number_of_graphs<9:
+        fig, axs = plt.subplots(2,4,figsize=(12,6))
+    else:
+        raise ValueError('The number of graphs should not exceed 8 on any one figure.')
+    axs=axs.flatten()
+
+    # Each graph is drawn.
+    for i in range(number_of_graphs):
+        graphs[i+8*full_graphs].draw(axs[i])
+    # The excess axes are removed.
+    for i in range(number_of_graphs,len(axs)):
+        fig.delaxes(axs[i])    
+
+    # If there were no complete figures the x and y limits are chosen by the first graph of this incomplete figure.
+    if full_graphs==0:
+        xlimits=axs[0].get_xlim()
+        ylimits=axs[0].get_ylim()
+    plt.setp(axs, ylim=ylimits,xlim=xlimits)
+    plt.tight_layout()
+    plt.show(block=False)
+
+    # A final figure is included showing, in greater size, the final configuration achieved.
+    plt.figure(figsize=(10,5), num="{} Points Known".format(len(graphs[-1].known_x)))
+    ax=plt.gca()
+    graphs[-1].draw(ax)
+    plt.show()
 
 
 def non_adaptive_strategy(interval,lipschitz_constant,number_of_x,function_type,results_df):
@@ -219,7 +309,7 @@ def main():
     lipschitz_constant=1
 
     # Set the number of x values that will be chosen.
-    number_of_x=5
+    number_of_x=6
 
     # Set this to True for an adaptive strategy (x values are chosen one at a time) and false for 
     # a non-adaptive strategy (all x values are chosen at once.)
@@ -278,43 +368,11 @@ def main():
     axs[1].plot(known_points[:])
     plt.show()
 
-    print(type(None))
-    print(type((3,4.2)))
-    if type((3.7,4.8))==tuple:
-        print("YYYYYYES!")
-    print()
-
-
-    underlying_function= pd.DataFrame()
-    underlying_function['x']=np.linspace(interval[0],interval[1],10000)
-    underlying_function['y']=underlying_function['x'].map(sample_function)
 
 
 
-    plt.plot(underlying_function['x'],underlying_function['y'])
-    plt.axvline(x_min,color='red',linestyle='dashed')
-    plt.axvline(x_max,color='red',linestyle='dashed')
-    plt.show()
 
-    # Graphing results:
-    """
-        if len(rows_to_plot)==2:
-        fig, axs = plt.subplots(1,2,figsize=(6,6))
-    elif len(rows_to_plot)==3:
-        fig, axs = plt.subplots(2,2,figsize=(12,6))
-        # We only want three axes so we delete the lower right one.
-        fig.delaxes(axs[1,1])
-    elif len(rows_to_plot)==4:
-        fig, axs = plt.subplots(2,2,figsize=(12,6))
-    # In any case we now want to flatten the axes so we can call plot_pie()
-    axs=axs.flatten()
-    for ax in axs:
-        graphs[0].draw(ax) # graphs is a list of Graph class objects.
-    fig.suptitle('{} Turns'.format{number_of_turns})
-    plt.tight_layout()
-    plt.savefig(file_path+'finding_maxima_and_minima') # optional
-    plt.show()
-    """
+
 
 
 
