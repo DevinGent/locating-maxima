@@ -105,48 +105,70 @@ class ApproximateMaxima:
         interval_y.append(self.known_y[-1]+self.lipschitz_constraint*(self.interval[1]-self.known_x[-1]))
         return(interval_x,interval_y)
 
+    def radius_of_information(self, greatest_max=None,least_max=None):
+        """Returns the radius of information given the greatest possible maximum and the smallest possible maximum on the interval."""
+
+        if greatest_max==None:
+            greatest_max=self.max_possible_y
+        if least_max==None:
+            least_max=self.max_y
+        return (greatest_max-least_max)/2
+    
     def _get_results(self):
-        """Produces a row for the results
-        dataframe and a check to see if the program should be terminated early."""
+        """Produces a row for the results dataframe and a check to see if the program should be terminated early."""
+
         known_points=len(self.known_y)
         least_max=self.max_y
         greatest_max=self.max_possible_y
-        roi=radius_of_information(greatest_max,least_max)
+        roi=self.radius_of_information(greatest_max,least_max)
         finished=False
         if roi==0:
             finished=True
         return ((known_points,[roi,least_max,greatest_max]),finished)
 
+    def _get_manual_x(self):
+        while True:
+            user_input=input("Enter an x value (between {} and {}) as a decimal".format(self.interval[0],self.interval[1]))
+            try:
+                user_input=float(user_input)
+                if user_input > self.interval[1] or user_input < self.interval[0]:
+                    print("Your number must be between {} and {}".format(self.interval[0],self.interval[1]))
+                elif user_input in self.known_x:
+                    print("Each x value can only appear once and x={} is already known.".format(user_input))
+                else:
+                    return (user_input,np.searchsorted(self.known_x,user_input))
+            except ValueError:
+                print("Please enter as a decimal number.")
 
     def get_optimal_x(self):
-            """Produces a pair of the form (new x coordinate, index in which to insert it in known_x)"""
-            # If no points are current known we select x to be the midway point on the interval
-            # and set the index to insert to 0.
-            if len(self.known_x)==0:
-                return((self.interval[0]+self.interval[1])/2,0)
-            
-            # Otherwise we determine the index on _interval_y in which the maximum possible value occurs.
-            interval_index=np.argmax(self._interval_y)
-            # If the maximum occurs on the left end.
-            if interval_index==0:
-                next_x_value = (2*self.interval[0]+self.known_x[0])/3
-            # If the maximum occurs on the right end.
-            elif interval_index==len(self._interval_y)-1:
-                next_x_value = (2*self.interval[1]+self.known_x[-1])/3
-            # If the maximum occurs between two known points.
-            else:
-                next_x_value = (self.known_y[interval_index]-self.known_y[interval_index-1]+
-                                self.lipschitz_constraint*(self.known_x[interval_index]+self.known_x[interval_index-1]))/(2*self.lipschitz_constraint)
-            # Return the result.
-            return (next_x_value,interval_index)
+        """Produces a pair of the form (new x coordinate, index in which to insert it in known_x)"""
+        # If no points are current known we select x to be the midway point on the interval
+        # and set the index to insert to 0.
+        if len(self.known_x)==0:
+            return((self.interval[0]+self.interval[1])/2,0)
+        
+        # Otherwise we determine the index on _interval_y in which the maximum possible value occurs.
+        interval_index=np.argmax(self._interval_y)
+        # If the maximum occurs on the left end.
+        if interval_index==0:
+            next_x_value = (2*self.interval[0]+self.known_x[0])/3
+        # If the maximum occurs on the right end.
+        elif interval_index==len(self._interval_y)-1:
+            next_x_value = (2*self.interval[1]+self.known_x[-1])/3
+        # If the maximum occurs between two known points.
+        else:
+            next_x_value = (self.known_y[interval_index]-self.known_y[interval_index-1]+
+                            self.lipschitz_constraint*(self.known_x[interval_index]+self.known_x[interval_index-1]))/(2*self.lipschitz_constraint)
+        # Return the result.
+        return (next_x_value,interval_index)
     
     def _legal_y(self, x, x_index):
         """Returns a pair (y_low,y_high) containing the maximum and minimum allowable y values for the given x value."""
 
-        # If there are no known points we set the minimum to -50 and the maximum to 50.
+        # If there are no known points we set the minimum to -infinity and the maximum to infinity.
         if len(self.known_y)==0:
-                return (-50,50)
-            # Otherwise we pick values that satisfies the Lipschitz constraint.
+                return (-np.inf,np.inf)
+        # Otherwise we pick values that satisfies the Lipschitz constraint.
         # Picking on the left.
         if x_index==0:
             y_low=self.known_y[0]+self.lipschitz_constraint*(x-self.known_x[0])
@@ -170,65 +192,58 @@ class ApproximateMaxima:
     def get_y(self, x, x_index, function_type):
         """Obtains a y value for the selected x value using the given function type."""
 
+        legal_y=self._legal_y(x,x_index)
+
         if function_type=='sample':   
             # If no sample function has been defined we raise an exception.
             if self.sample_function==None:
                 raise Exception("A sample function must be given before it can be used.")
             # Otherwise we evaluate the sample expression at the chosen x.
             else:
-                return eval(self.sample_function) 
+                new_y=eval(self.sample_function)
+                if new_y <legal_y[0] or new_y>legal_y[1]:
+                    raise Exception("The given function, {}, gives an illegal y value of {} when evaluated at x={} in violation of the Lipschitz constraint {}.".format(
+                        self.sample_function,new_y,eval(self.sample_function),self.lipschitz_constraint
+                    ))
+                else:
+                    return new_y
             
         elif function_type=='optimal':
             # If no points are currently known we choose at random in the range between -50 and 50.
             if len(self.known_y)==0:
                 return random.uniform(-50,50)
-            
-            # Otherwise we pick the larger value between the adjacent points.
-            if x_index==0:
-                return self.known_y[0]
-            elif x_index==len(self.known_x)-1:
-                return self.known_y[-1]
-            else:
-                return max(self.known_y[x_index-1],self.known_y[x_index])
+
+            # Otherwise we pick the smaller value between the largest known y and the greatest possible y between the adjacent points.
+            return min(self.max_y,legal_y[1])
+
                 
         elif function_type=='random':
-            return random.uniform(*self._legal_y(x,x_index))
-        
-        elif function_type=='custom':
+            # If no points are currently known we choose at random in the range between -50 and 50.
             if len(self.known_y)==0:
-                while True:
-                        user_input=input("Enter a y value, as a decimal, for x={}".format(x))
-                        try:
-                            user_input=float(user_input)
-                            return user_input
-                        except ValueError:
-                            print("Please enter as a decimal number.")
+                return random.uniform(-50,50)
             else:
-                (y_low,y_high)=self._legal_y(x,x_index)
-                while True:
-                    user_input=input("Enter a y value (between {} and {}), as a decimal, for x={}".format(y_low,y_high,x))
-                    try:
-                        user_input=float(user_input)
-                        if user_input >= y_low and user_input <= y_high:
-                            return user_input
-                        else:
-                            print("Your number must be between {} and {}".format(y_low,y_high))
-                    except ValueError:
-                        print("Please enter as a decimal number.")
+                return random.uniform(*legal_y)
+        
+        elif function_type=='manual':
+            while True:
+                user_input=input("Enter a y value (between {} and {}), as a decimal, for x={}".format(legal_y[0],legal_y[1],x))
+                try:
+                    user_input=float(user_input)
+                    if user_input >= legal_y[0] and user_input <= legal_y[1]:
+                        return user_input
+                    else:
+                        print("Your number must be between {} and {}".format(legal_y[0],legal_y[1]))
+                except ValueError:
+                    print("Please enter as a decimal number.")
 
         # Raise an error if the function type is not supported.
         else:
-            raise ValueError("The function type must be one of the strings 'custom', 'optimal', 'random', or 'sample")
+            raise ValueError("The function type must be one of the strings 'manual', 'optimal', 'random', or 'sample")
 
 
 
     def add_n_points(self, n, function_type, adaptive=True ):
         """Work through the process of adding n more points."""
-
-
-        # Raise an error if the function type is not supported.
-        if function_type not in ['random','sample','optimal','custom']:
-            raise ValueError("The function type must be one of the strings 'custom', 'optimal', 'random', or 'sample")
         
         # If non-adaptive.
         if adaptive==False:
@@ -238,6 +253,7 @@ class ApproximateMaxima:
             # This is where code for the non-adaptive method will go.
             else:
                 print("The non-adaptive method is still in progress") # Code for the non-adaptive method goes here.
+
         # If adaptive.
         else:
             for turn in range(n):
@@ -451,13 +467,6 @@ class Graph:
 
 
 
-
-
-
-
-def radius_of_information(greatest_max,least_max):
-    """Returns the radius of information given the greatest possible maximum and the smallest possible maximum on the interval."""
-    return (greatest_max-least_max)/2
 
 
 
