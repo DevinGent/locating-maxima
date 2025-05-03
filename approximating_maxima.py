@@ -269,19 +269,46 @@ class ApproximateMaxima:
 
 
 
-    def add_n_points(self, n, function_type, adaptive=True, optimal_x=True):
+    def add_n_points(self, n: int, function_type, adaptive=True, optimal_x=True):
         """Work through the process of adding n more points."""
         
+        if n<1:
+            raise ValueError("You must add at least one point.")
+        
         # If non-adaptive.
-        if adaptive==False:
+        if adaptive==False and n>1:
             # Currently using the non-adaptive method is not supported when some points are already known.
             if len(self.known_x)!=0:
                 raise Exception("Currently the ability to select points non-adaptively with known starting points is not supported.")
             # This is where code for the non-adaptive method will go.
             else:
-                print("The non-adaptive method is still in progress") # Code for the non-adaptive method goes here.
+                for i in range(n+1):
+                    if optimal_x==True:
+                        x_to_insert=((2*(self.interval[0]*n+self.interval[1]*i-self.interval[0]*i)+self.interval[0]-self.interval[1])/(2*n),i)
+                    else:
+                        x_to_insert=self._get_manual_x()
+        
+                    # Determining what the paired y value should be.
+                    y_to_insert=self.get_y(*x_to_insert, function_type)
 
-        # If adaptive.
+                    # Updating the arrays.
+                    self.update_arrays(*x_to_insert,y_to_insert)
+                
+                # We have now added n points to the approximator.
+                # Since points were supposed to be added all at once we set the latest x and y to None.
+                self.latest_x=None
+                self.latest_y=None
+                # Adding a graphable copy of the current arrays to the stored list.
+                self.graphs.append(Graph(self.known_x,self.known_y,self._interval_x,self._interval_y,self.max_y,self.max_possible_y,self.latest_x,self.latest_y))
+
+                # Obtaining the next row of the dataframe.
+                (index,new_row)=self._get_results()
+                # Adding the new row.
+                self.results_df.loc[index]=new_row
+                    
+
+
+        # If adaptive (or only one point is being added).
         else:
             for turn in range(n):
                 # Determining the next x value to add.
