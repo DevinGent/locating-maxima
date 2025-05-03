@@ -202,8 +202,8 @@ class ApproximateMaxima:
             y_high=self.known_y[0]-self.lipschitz_constraint*(x-self.known_x[0])
         # Picking on the right.
         elif x_index==len(self.known_x):
-            y_low=self.known_y[-1]-self.lipschitz_constraint*(x-self.known_x[1])
-            y_high=self.known_y[1]+self.lipschitz_constraint*(x-self.known_x[1])
+            y_low=self.known_y[-1]-self.lipschitz_constraint*(x-self.known_x[-1])
+            y_high=self.known_y[-1]+self.lipschitz_constraint*(x-self.known_x[-1])
         # Picking in the middle.
         else:
             y_low=max(
@@ -282,9 +282,9 @@ class ApproximateMaxima:
                 raise Exception("Currently the ability to select points non-adaptively with known starting points is not supported.")
             # This is where code for the non-adaptive method will go.
             else:
-                for i in range(n+1):
+                for i in range(1,n+1):
                     if optimal_x==True:
-                        x_to_insert=((2*(self.interval[0]*n+self.interval[1]*i-self.interval[0]*i)+self.interval[0]-self.interval[1])/(2*n),i)
+                        x_to_insert=((2*(self.interval[0]*n+self.interval[1]*i-self.interval[0]*i)+self.interval[0]-self.interval[1])/(2*n),i-1)
                     else:
                         x_to_insert=self._get_manual_x()
         
@@ -378,7 +378,7 @@ class ApproximateMaxima:
         self.max_possible_y=max(self._interval_y)
         self.max_possible_y=max(self.max_possible_y,self.max_y)
 
-    def display_graphs(self, n=None, last=False, display_region=False):
+    def display_graphs(self, n=None, first=False, display_region=False):
         """Displays a collection of n graphs. By default this method produces all the currently available graphs. If last is set to False
         (by default) then the first n graphs are given, and if set to True then the most recent n graphs are displayed."""
 
@@ -396,7 +396,7 @@ class ApproximateMaxima:
             raise Warning('There are only {} graphs so only {} will be displayed.'.format(total_graphs,total_graphs))
 
         # Determining the indices of the first and last graph to display.
-        if last==False:
+        if first==True:
             first_index=0
             last_index=n-1
         else:
