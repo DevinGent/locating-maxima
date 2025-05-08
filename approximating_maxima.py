@@ -6,19 +6,18 @@ https://en.wikipedia.org/wiki/Lipschitz_continuity
 """
 
 import matplotlib.pyplot as plt
-from fractions import Fraction
 import numpy as np
 import pandas as pd
 import math
 import random
-import copy
+
 
 
 
 class ApproximateMaxima:
     """
     Assuming f is a Lipschitz continuous function on the given interval and with the given Lipschitz constraint, 
-    determines the best choices of x values to approximate the maximum value of f. 
+    determines the optimal choices of x values to approximate the maximum value of f. 
     
     A set of initial points can be given 
     as a list of (x,y) pairs for the optional argument starting_points. 
@@ -39,7 +38,7 @@ class ApproximateMaxima:
         # The sample function for testing.
         self.sample_function=sample_function
 
-        # Additional variables which will be filled at points are added.
+        # Additional variables which will be filled later are added.
         # The most recently added x value.
         self.latest_x=None
         # The most recently added y value.
@@ -51,13 +50,12 @@ class ApproximateMaxima:
         # A list of graphs that can be displayed.
         self.graphs=[]
         # A dataframe displaying the number of points known and information on what the maximum value of the function could be.
-        self.results_df=pd.DataFrame(columns=['Radius of Information','Least Possible Maximum','Greatest Possible Maximum'])
+        self.results_df=pd.DataFrame(columns=['Radius of Information','Least Possible Maximum','Greatest Possible Maximum','Approximated Maximum'])
         # We index the dataframe by the number of known points at each step.
         self.results_df.index.name='Known Points'
 
         # We set variables for the known x values (in ascending order), the known y values (matching the order of xs),
         # the x values where a maximum could occur between known points (_interval_x), and the corresponding y values (_interval_y)
-     
         if starting_points==None:
             # If no starting points are given we set all the arrays to empty and set them to accept float entries.
             self.known_x=np.array([],dtype=float)
@@ -68,7 +66,7 @@ class ApproximateMaxima:
             # If the optional argument starting_points was given, we sort and unpack the list of pairs into two individual 
             # lists representing the initial x values and initial ys.
             initial_x, initial_y=list(zip(*sorted(starting_points)))
-            # Setting these as the known x and y.
+            # We set these as the known x and y.
             self.known_x=np.array(initial_x,dtype=float)
             self.known_y=np.array(initial_y,dtype=float)
             # Check for errors and illegal x and y pairs.
@@ -89,7 +87,7 @@ class ApproximateMaxima:
             # Add a graph of the starting configuration.
             self.graphs.append(Graph(self.known_x,self.known_y,self._interval_x,self._interval_y,self.max_y,self.max_possible_y))
 
-            # Finally set the results dataframe based on the current points.
+            # Finally set the first row of the results dataframe based on the current points.
             (index, results)=self._get_results()
             self.results_df.loc[index]=results
 
@@ -126,6 +124,7 @@ class ApproximateMaxima:
 
         # We develop the interval x and ys from left to right. First we consider the left endpoint.
         interval_x=[self.interval[0]]
+        # We use point-slope form to acquire y.
         interval_y=[self.known_y[0]-self.lipschitz_constraint*(self.interval[0]-self.known_x[0])]
 
         # Next we add the points between each pair of known x and y
@@ -151,7 +150,8 @@ class ApproximateMaxima:
         least_max=self.max_y
         greatest_max=self.max_possible_y
         roi=radius_of_information(greatest_max,least_max)
-        return((known_points,[roi,least_max,greatest_max]))
+        approx=(least_max+greatest_max)/2
+        return((known_points,[roi,least_max,greatest_max,approx]))
 
     def _get_manual_x(self):
         while True:
@@ -178,10 +178,12 @@ class ApproximateMaxima:
         interval_index=np.argmax(self._interval_y)
         # If the maximum occurs on the left end.
         if interval_index==0:
-            next_x_value = (2*self.interval[0]+self.known_x[0])/3
+            next_x_value = (self.lipschitz_constraint*(2*self.interval[0]+self.known_x[0])+
+                            self.known_y[0]-self.max_y)/(3*self.lipschitz_constraint)
         # If the maximum occurs on the right end.
         elif interval_index==len(self._interval_y)-1:
-            next_x_value = (2*self.interval[1]+self.known_x[-1])/3
+            next_x_value = (self.lipschitz_constraint*(2*self.interval[1]+self.known_x[-1])+
+                            self.max_y-self.known_y[-1])/(3*self.lipschitz_constraint)
         # If the maximum occurs between two known points.
         else:
             next_x_value = (self.known_y[interval_index]-self.known_y[interval_index-1]+
@@ -230,7 +232,7 @@ class ApproximateMaxima:
                 new_y=eval(self.sample_function)
                 if new_y <legal_y[0] or new_y>legal_y[1]:
                     raise Exception("The given function, {}, gives an illegal y value of {} when evaluated at x={} in violation of the Lipschitz constraint {}.".format(
-                        self.sample_function,new_y,eval(self.sample_function),self.lipschitz_constraint
+                        self.sample_function,new_y,x,self.lipschitz_constraint
                     ))
                 else:
                     return new_y
@@ -608,7 +610,7 @@ if __name__ == '__main__':
     approximation.add_n_points(5, 'sample')
     print(approximation.known_x)
 
-    approximation.display_graphs(3, last=False)
+    approximation.display_graphs(3)
 
 
 
