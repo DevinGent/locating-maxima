@@ -1,7 +1,6 @@
 """Based on a project from my undergraduate education, this script will work through a method for determining the 
 maxima and minima of a Lipschitz continuous function over a given interval.  For information on Lipschitz continuity see:
-https://en.wikipedia.org/wiki/Lipschitz_continuity
-
+https://en.wikipedia.org/wiki/Lipschitz_continuity and the included README.
 
 """
 
@@ -25,7 +24,7 @@ class ApproximateMaxima:
     The argument sample_function can be set, as a string, 
     to set the function f explicitly for testing purposes. sample_function must be a Lipschitz continuous function
     on the stated interval given as a string containing a function of x to be evaluated in Python's mathematics interpreter
-    (see the ReadMe for further details).
+    (see the README for further details).
     """
 
     def __init__(self, interval: tuple, lipschitz_constraint: float,starting_points=None,sample_function=None):
@@ -85,7 +84,7 @@ class ApproximateMaxima:
             self.max_possible_y=max(self.max_possible_y,self.max_y)
 
             # Add a graph of the starting configuration.
-            self.graphs.append(Graph(self.known_x,self.known_y,self._interval_x,self._interval_y,self.max_y,self.max_possible_y))
+            self.add_graph()
 
             # Finally set the first row of the results dataframe based on the current points.
             (index, results)=self._get_results()
@@ -153,6 +152,13 @@ class ApproximateMaxima:
         approx=(least_max+greatest_max)/2
         return((known_points,[roi,least_max,greatest_max,approx]))
 
+
+    def add_graph(self):
+        """Adds a graph of the current configuration to the list of graphs."""
+
+        self.graphs.append(Graph(self.known_x,self.known_y,self._interval_x,self._interval_y,self.max_y,self.max_possible_y,self.latest_x,self.latest_y))
+
+
     def _get_manual_x(self):
         while True:
             user_input=input("Enter an x value (between {} and {}) as a decimal".format(self.interval[0],self.interval[1]))
@@ -169,7 +175,8 @@ class ApproximateMaxima:
 
     def get_optimal_x(self):
         """Produces a pair of the form (new x coordinate, index in which to insert it in known_x)"""
-        # If no points are current known we select x to be the midway point on the interval
+
+        # If no points are currently known we select x to be the midway point on the interval
         # and set the index to insert to 0.
         if len(self.known_x)==0:
             return((self.interval[0]+self.interval[1])/2,0)
@@ -270,74 +277,6 @@ class ApproximateMaxima:
             raise ValueError("The function type must be one of the strings 'manual', 'optimal', 'random', or 'sample")
 
 
-
-    def add_n_points(self, n: int, function_type, adaptive=True, optimal_x=True):
-        """Work through the process of adding n more points."""
-        
-        if n<1:
-            raise ValueError("You must add at least one point.")
-        
-        # If non-adaptive.
-        if adaptive==False and n>1:
-            # Currently using the non-adaptive method is not supported when some points are already known.
-            if len(self.known_x)!=0:
-                raise Exception("Currently the ability to select points non-adaptively with known starting points is not supported.")
-            # This is where code for the non-adaptive method will go.
-            else:
-                for i in range(1,n+1):
-                    if optimal_x==True:
-                        x_to_insert=((2*(self.interval[0]*n+self.interval[1]*i-self.interval[0]*i)+self.interval[0]-self.interval[1])/(2*n),i-1)
-                    else:
-                        x_to_insert=self._get_manual_x()
-        
-                    # Determining what the paired y value should be.
-                    y_to_insert=self.get_y(*x_to_insert, function_type)
-
-                    # Updating the arrays.
-                    self.update_arrays(*x_to_insert,y_to_insert)
-                
-                # We have now added n points to the approximator.
-                # Since points were supposed to be added all at once we set the latest x and y to None.
-                self.latest_x=None
-                self.latest_y=None
-                # Adding a graphable copy of the current arrays to the stored list.
-                self.graphs.append(Graph(self.known_x,self.known_y,self._interval_x,self._interval_y,self.max_y,self.max_possible_y,self.latest_x,self.latest_y))
-
-                # Obtaining the next row of the dataframe.
-                (index,new_row)=self._get_results()
-                # Adding the new row.
-                self.results_df.loc[index]=new_row
-                    
-
-
-        # If adaptive (or only one point is being added).
-        else:
-            for turn in range(n):
-                # Determining the next x value to add.
-                if optimal_x==True:
-                    x_to_insert=self.get_optimal_x()
-                else:
-                    x_to_insert=self._get_manual_x()
-
-                # Determining what the paired y value should be.
-                y_to_insert=self.get_y(*x_to_insert, function_type)
-
-                # Updating the arrays.
-                self.update_arrays(*x_to_insert,y_to_insert)
-
-                # Adding a graphable copy of the current arrays to the stored list.
-                self.graphs.append(Graph(self.known_x,self.known_y,self._interval_x,self._interval_y,self.max_y,self.max_possible_y,self.latest_x,self.latest_y))
-
-                # Obtaining the next row of the dataframe and checking if the loop can be terminated early.
-                (index,new_row)=self._get_results()
-
-                self.results_df.loc[index]=new_row
-
-                # Checking if the process should be ended early.
-                if self.max_y==self.max_possible_y:
-                    break
-
-
     def update_arrays(self, x, index, y):
         """Takes an x and y value to insert in the known value arrays as well as an index in which to insert them, then updates
         all the arrays."""
@@ -379,6 +318,135 @@ class ApproximateMaxima:
         self.max_y=max(self.known_y)
         self.max_possible_y=max(self._interval_y)
         self.max_possible_y=max(self.max_possible_y,self.max_y)
+
+    def add_n_points(self, n: int, function_type, adaptive=True, optimal_x=True):
+        """Work through the process of adding n more points."""
+        
+        if n<1:
+            raise ValueError("You must add at least one point.")
+        # If non-adaptive
+        if adaptive==False and optimal_x==False:
+            self._non_adaptive(n,function_type)
+        # If adaptive (or manually choosing x).
+        else:
+            for turn in range(n):
+                self._add_one_point(function_type,optimal_x)
+
+                # Checking if the process should be ended early.
+                if self.max_y==self.max_possible_y:
+                    break
+
+    def _add_one_point(self, function_type, optimal_x=True):
+        """Adds a single point to the current configuration."""
+
+        # Determining the next x value to add.
+        if optimal_x==True:
+            x_to_insert=self.get_optimal_x()
+        else:
+            x_to_insert=self._get_manual_x()
+
+        # Determining what the paired y value should be.
+        y_to_insert=self.get_y(*x_to_insert, function_type)
+
+        # Updating the arrays.
+        self.update_arrays(*x_to_insert,y_to_insert)
+
+        # Adding a graphable copy of the current arrays to the stored list.
+        self.add_graph()
+
+        # Obtaining the next row of the dataframe.
+        (index,new_row)=self._get_results()
+        self.results_df.loc[index]=new_row
+
+    def _fit_n_on_interval(self, n:int, interval_index: int):
+        """Determines what the optimal placement of n new x values should be on the given interval and returns a pair
+        (xs, max_y) with a list of these x values and what the maximum value is between them."""
+
+        # If we need to fit points between the left boundary and the first known x.
+        if interval_index==0:
+            right_end=self.known_x[0]-(self.max_y-self.known_y[0])/self.lipschitz_constraint
+            spacing=(right_end-self.interval[0])/(n+.5)
+            starting_x=self.interval[0]+spacing/2
+        # If we need to fit points between the left boundary and the last known x.
+        elif interval_index==len(self._interval_y)-1:
+            left_end=self.known_x[-1]+(self.max_y-self.known_y[-1])/self.lipschitz_constraint
+            spacing=(self.interval[1]-left_end)/(n+.5)
+            starting_x=left_end+spacing
+        # If we need to fit points between two known points.    
+        else:
+            left_end=self.known_x[interval_index-1]+(self.max_y-self.known_y[interval_index-1])/self.lipschitz_constraint
+            right_end=self.known_x[interval_index]-(self.max_y-self.known_y[interval_index])/self.lipschitz_constraint
+            spacing=(right_end-left_end)/(n+1)
+            starting_x=left_end+spacing
+
+        max_y=(2*self.max_y+self.lipschitz_constraint*spacing)/2
+        xs=[starting_x+i*spacing for i in range(n)]
+        return(xs,max_y)
+
+        
+
+
+    def _non_adaptive(self, n: int, function_type):
+        """Adds n points where the x values are chosen optimally simultaneously (rather than one by by adaptively) based
+        on the current configuration of the approximator."""
+
+        # Creating a list of new x values (and their indices) to add.
+        xs_to_add=[]
+
+        # If there is only one point to be added we do it simply.
+        if n==1:
+            self._add_one_point(function_type)
+            return
+        # If no points are known the method is also easier.
+        elif len(self.known_x)==0:
+            for i in range(1,n+1):
+                xs_to_add.append(((2*(self.interval[0]*n+self.interval[1]*i-self.interval[0]*i)+self.interval[0]-self.interval[1])/(2*n),i-1))
+        # Otherwise we add new x values to intervals to decrease the radius of information assuming that nature plays optimally.
+        else:
+            # We create a dataframe to search through and update as points are added.
+            # The column Interval_max records the greatest y value on the interval, xs added the number of xs to be fit inside,
+            # and xs a list of xs to be added on that interval.
+            temp_df=pd.DataFrame({'Interval_max':self._interval_y}, index='Interval')
+            temp_df['xs added']=0
+            temp_df['xs']=None
+            # We now do the following process n times.
+            for i in range(n):
+                # Find the interval where the max possible y could be.
+                max_index=temp_df['Interval_max'].idxmax()
+                # See how many xs are supposed to be added to that interval and try to add one more.
+                number_to_add=temp_df.at[max_index,'xs added']+1
+                # See how to select those xs and what the new maximum y would be.
+                (xs,int_max)=self._fit_n_on_interval(number_to_add,max_index)
+                # Replace the entry in the dataframe with the new information.
+                temp_df.loc[max_index]=[int_max,number_to_add,xs]
+            # After exiting the for loop we now add all the necessary xs to our list.
+            points_added=0
+            for i in temp_df.index:
+                if temp_df.at[i,'xs added']>0:
+                    for x in temp_df.at[i,'xs']:
+                        # We add pairs of the form (x_to_insert,index_to_insert) to our list.
+                        xs_to_add.append((x,i+points_added))
+                        points_added+=1
+
+
+        for x_to_insert in xs_to_add:
+            # Determining what the paired y value should be.
+            y_to_insert=self.get_y(*x_to_insert, function_type)
+
+            # Updating the arrays.
+            self.update_arrays(*x_to_insert,y_to_insert)
+        
+        # We have now added n points to the approximator.
+        # Since points were supposed to be added all at once we set the latest x and y to None.
+        self.latest_x=None
+        self.latest_y=None
+        # Adding a graphable copy of the current arrays to the stored list.
+        self.add_graph()
+
+        # Obtaining the next row of the dataframe.
+        (index,new_row)=self._get_results()
+        # Adding the new row.
+        self.results_df.loc[index]=new_row
 
     def display_graphs(self, n=None, first=False, display_region=False):
         """Displays a collection of n graphs. By default this method produces all the currently available graphs. If last is set to False
