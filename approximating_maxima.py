@@ -1,4 +1,5 @@
-"""Based on a project from my undergraduate education, this script will work through a method for determining the 
+"""
+Based on a project from my undergraduate education, this script will work through a method for determining the 
 maxima and minima of a Lipschitz continuous function over a given interval.  For information on Lipschitz continuity see:
 https://en.wikipedia.org/wiki/Lipschitz_continuity and the included README.
 
@@ -30,14 +31,18 @@ class ApproximateMaxima:
     def __init__(self, interval: tuple, lipschitz_constraint: float,starting_points=None,sample_function=None):
         
         # Setting variables using the given arguments.
-        # The interval on which the function is Lipschitz continuous
+        # The interval on which the function is Lipschitz continuous (as a pair)
         self.interval=interval
+        if self.interval[0]>=self.interval[1]:
+            raise ValueError("The interval must be given in the form (a,b) with a<b.")
         # A Lipschitz constraint
         self.lipschitz_constraint=lipschitz_constraint
+        if self.lipschitz_constraint<=0:
+            raise ValueError("The Lipschitz constraint must be a positive number.")
         # The sample function for testing.
         self.sample_function=sample_function
 
-        # Additional variables which will be filled later are added.
+        # Additional variables which will be assigned later are added here for clarity.
         # The most recently added x value.
         self.latest_x=None
         # The most recently added y value.
@@ -68,6 +73,7 @@ class ApproximateMaxima:
             # We set these as the known x and y.
             self.known_x=np.array(initial_x,dtype=float)
             self.known_y=np.array(initial_y,dtype=float)
+
             # Check for errors and illegal x and y pairs.
             self._legal_arrays()
 
@@ -84,7 +90,7 @@ class ApproximateMaxima:
             self.max_possible_y=max(self.max_possible_y,self.max_y)
 
             # Add a graph of the starting configuration.
-            self.add_graph()
+            self._add_graph()
 
             # Finally set the first row of the results dataframe based on the current points.
             (index, results)=self._get_results()
@@ -119,7 +125,8 @@ class ApproximateMaxima:
 
 
     def _get_interval_xy(self):
-        """Takes the current known x and y and constructs the points where a maximum could occur on the intervals between them."""
+        """Takes the current known x and y and constructs the points where a maximum could occur on the intervals between them.
+        Returns a pair of the form (interval_x,interval_y)."""
 
         # We develop the interval x and ys from left to right. First we consider the left endpoint.
         interval_x=[self.interval[0]]
@@ -153,13 +160,16 @@ class ApproximateMaxima:
         return((known_points,[roi,least_max,greatest_max,approx]))
 
 
-    def add_graph(self):
+    def _add_graph(self):
         """Adds a graph of the current configuration to the list of graphs."""
 
         self.graphs.append(Graph(self.known_x,self.known_y,self._interval_x,self._interval_y,self.max_y,self.max_possible_y,self.latest_x,self.latest_y))
 
 
     def _get_manual_x(self):
+        """Tries to read user input for a valid x value.  Will keep prompting the user until a valid input is given.
+        Returns a pair of the form (x,index_to_insort)."""
+
         while True:
             user_input=input("Enter an x value (between {} and {}) as a decimal".format(self.interval[0],self.interval[1]))
             try:
@@ -169,19 +179,22 @@ class ApproximateMaxima:
                 elif user_input in self.known_x:
                     print("Each x value can only appear once and x={} is already known.".format(user_input))
                 else:
+                    print(f"Added {user_input}")
                     return (user_input,np.searchsorted(self.known_x,user_input))
             except ValueError:
                 print("Please enter as a decimal number.")
 
     def get_optimal_x(self):
-        """Produces a pair of the form (new x coordinate, index in which to insert it in known_x)"""
+        """Produces a pair of the form (new x coordinate, index in which to insert it in known_x) where x
+        is chosen optimally."""
 
-        # If no points are currently known we select x to be the midway point on the interval
+        # If no points are currently known we select x to be the midpoint on the interval
         # and set the index to insert to 0.
         if len(self.known_x)==0:
             return((self.interval[0]+self.interval[1])/2,0)
         
         # Otherwise we determine the index on _interval_y in which the maximum possible value occurs.
+        # This is the index in which we select the new x.
         interval_index=np.argmax(self._interval_y)
         # If the maximum occurs on the left end.
         if interval_index==0:
@@ -204,7 +217,7 @@ class ApproximateMaxima:
         # If there are no known points we set the minimum to -infinity and the maximum to infinity.
         if len(self.known_y)==0:
                 return (-np.inf,np.inf)
-        # Otherwise we pick values that satisfies the Lipschitz constraint.
+        # Otherwise we pick values that satisfy the Lipschitz constraint.
         # Picking on the left.
         if x_index==0:
             y_low=self.known_y[0]+self.lipschitz_constraint*(x-self.known_x[0])
@@ -226,10 +239,13 @@ class ApproximateMaxima:
         return(y_low,y_high)
 
     def get_y(self, x, x_index, function_type):
-        """Obtains a y value for the selected x value using the given function type."""
+        """Returns a y value for the selected x value using the given function type."""
 
+
+        # Determining what the legal range of y values is for the given x.
         legal_y=self._legal_y(x,x_index)
 
+        # The choice of y is determined by the function type.
         if function_type=='sample':   
             # If no sample function has been defined we raise an exception.
             if self.sample_function==None:
@@ -258,6 +274,7 @@ class ApproximateMaxima:
             if len(self.known_y)==0:
                 return random.uniform(-50,50)
             else:
+                # Return a random number in the legal range.
                 return random.uniform(*legal_y)
         
         elif function_type=='manual':
@@ -274,7 +291,7 @@ class ApproximateMaxima:
 
         # Raise an error if the function type is not supported.
         else:
-            raise ValueError("The function type must be one of the strings 'manual', 'optimal', 'random', or 'sample")
+            raise ValueError("The function type must be one of the strings 'manual', 'optimal', 'random', or 'sample'.")
 
 
     def update_arrays(self, x, index, y):
@@ -319,22 +336,6 @@ class ApproximateMaxima:
         self.max_possible_y=max(self._interval_y)
         self.max_possible_y=max(self.max_possible_y,self.max_y)
 
-    def add_n_points(self, n: int, function_type, adaptive=True, optimal_x=True):
-        """Work through the process of adding n more points."""
-        
-        if n<1:
-            raise ValueError("You must add at least one point.")
-        # If non-adaptive
-        if adaptive==False and optimal_x==False:
-            self._non_adaptive(n,function_type)
-        # If adaptive (or manually choosing x).
-        else:
-            for turn in range(n):
-                self._add_one_point(function_type,optimal_x)
-
-                # Checking if the process should be ended early.
-                if self.max_y==self.max_possible_y:
-                    break
 
     def _add_one_point(self, function_type, optimal_x=True):
         """Adds a single point to the current configuration."""
@@ -352,11 +353,97 @@ class ApproximateMaxima:
         self.update_arrays(*x_to_insert,y_to_insert)
 
         # Adding a graphable copy of the current arrays to the stored list.
-        self.add_graph()
+        self._add_graph()
 
         # Obtaining the next row of the dataframe.
         (index,new_row)=self._get_results()
         self.results_df.loc[index]=new_row
+
+
+    def add_n_points(self, n: int, function_type, adaptive=True):
+        """Work through the process of adding n more points optimally. If adaptive=True each x value is chosen one at a time.
+        If adaptive=False all the x values are chosen at once and then the corresponding y values are chosen.
+        
+        function_type must be one of the strings 'manual', 'optimal', 'random', or 'sample'. 
+        See the README for further information on each type's behavior."""
+        
+        if n<1:
+            raise ValueError("You must add at least one point.")
+        # If non-adaptive
+        if adaptive==False:
+            self._non_adaptive(n,function_type)
+        # If adaptive.
+        else:
+            for turn in range(n):
+                self._add_one_point(function_type,optimal_x=True)
+
+                # Checking if the process should be ended early.
+                if self.max_y==self.max_possible_y:
+                    print(f"The maximum value of the function on {list(self.interval)} has been found. It is {self.max_y}.")
+                    break
+
+    def add_points_manually(self, function_type, user_x=1):
+        """Add points to the configuration using user selected x. 
+        
+        function_type must be one of the strings 'manual', 'optimal', 'random', or 'sample'. 
+        See the README for further information on each type's behavior.
+        
+        user_x must be either an integer representing the number of points to be added or a list of x values to add.
+        If user_x is an integer, the user will be prompted to enter x values one by one in the console."""
+
+        # If the user selected an integer we check whether it is greater than 1.  
+        # If so we add one point at a time from user input.
+        if type(user_x)==int:
+            if user_x<1:
+                raise ValueError("You must add at least one point.")
+            else:
+                for turn in range(user_x):
+                    self._add_one_point(function_type,optimal_x=False)
+                return
+        elif type(user_x)==list:
+            # If the user entered a list of values we only accept the valid choices of x (within the interval, not duplicated, etc)
+            valid_x=[]
+            for x in set(user_x):
+                try:
+                    x=float(x)
+                    if x > self.interval[1] or x < self.interval[0]:
+                        print(f"Your choice {x} is not in the interval from {self.interval[0]} to {self.interval[1]}")
+                    elif x in self.known_x:
+                        print(f"x={x} is already known.")
+                    else:
+                        valid_x.append(x)
+                        
+                except ValueError:
+                    print(f"{x} is not a number.")
+            # After creating a list of valid x values we see whether any of the user x were excluded 
+            # (i.e. if the user list is longer than the valid list.)
+            if len(valid_x)<len(user_x):
+                print("Evaluating and adding for the following valid x-values:")
+                print(valid_x)
+            # Adding the valid xs to the configuration.
+            for x in valid_x:
+                x_to_insert=(x,np.searchsorted(self.known_x,x))
+                y_to_insert=self.get_y(*x_to_insert, function_type)
+                self.update_arrays(*x_to_insert,y_to_insert)
+            
+            # Since points were supposed to be added all at once we set the latest x and y to None.
+            self.latest_x=None
+            self.latest_y=None
+
+            # Adding a graph after all the x have been added.    
+            self._add_graph()
+
+            # Obtaining the next row of the dataframe.
+            (index,new_row)=self._get_results()
+            self.results_df.loc[index]=new_row
+
+        # Raise an error if the input was neither a list nor an int.
+        else:
+            raise ValueError("The parameter user_x must be either a number (the number of x to add) or a list (of x-values to add).")
+    
+    
+
+
 
     def _fit_n_on_interval(self, n:int, interval_index: int):
         """Determines what the optimal placement of n new x values should be on the given interval and returns a pair
@@ -367,7 +454,7 @@ class ApproximateMaxima:
             right_end=self.known_x[0]-(self.max_y-self.known_y[0])/self.lipschitz_constraint
             spacing=(right_end-self.interval[0])/(n+.5)
             starting_x=self.interval[0]+spacing/2
-        # If we need to fit points between the left boundary and the last known x.
+        # If we need to fit points between the right boundary and the last known x.
         elif interval_index==len(self._interval_y)-1:
             left_end=self.known_x[-1]+(self.max_y-self.known_y[-1])/self.lipschitz_constraint
             spacing=(self.interval[1]-left_end)/(n+.5)
@@ -387,7 +474,7 @@ class ApproximateMaxima:
 
 
     def _non_adaptive(self, n: int, function_type):
-        """Adds n points where the x values are chosen optimally simultaneously (rather than one by by adaptively) based
+        """Adds n points where the x values are chosen optimally simultaneously (rather than one by one adaptively) based
         on the current configuration of the approximator."""
 
         # Creating a list of new x values (and their indices) to add.
@@ -406,7 +493,8 @@ class ApproximateMaxima:
             # We create a dataframe to search through and update as points are added.
             # The column Interval_max records the greatest y value on the interval, xs added the number of xs to be fit inside,
             # and xs a list of xs to be added on that interval.
-            temp_df=pd.DataFrame({'Interval_max':self._interval_y}, index='Interval')
+            temp_df=pd.DataFrame({'Interval_max':self._interval_y})
+            #temp_df.index.name=
             temp_df['xs added']=0
             temp_df['xs']=None
             # We now do the following process n times.
@@ -418,7 +506,7 @@ class ApproximateMaxima:
                 # See how to select those xs and what the new maximum y would be.
                 (xs,int_max)=self._fit_n_on_interval(number_to_add,max_index)
                 # Replace the entry in the dataframe with the new information.
-                temp_df.loc[max_index]=[int_max,number_to_add,xs]
+                temp_df.loc[max_index]={'Interval_max':int_max,'xs added':number_to_add,'xs':xs}
             # After exiting the for loop we now add all the necessary xs to our list.
             points_added=0
             for i in temp_df.index:
@@ -441,7 +529,7 @@ class ApproximateMaxima:
         self.latest_x=None
         self.latest_y=None
         # Adding a graphable copy of the current arrays to the stored list.
-        self.add_graph()
+        self._add_graph()
 
         # Obtaining the next row of the dataframe.
         (index,new_row)=self._get_results()
@@ -449,13 +537,15 @@ class ApproximateMaxima:
         self.results_df.loc[index]=new_row
 
     def display_graphs(self, n=None, first=False, display_region=False):
-        """Displays a collection of n graphs. By default this method produces all the currently available graphs. If last is set to False
-        (by default) then the first n graphs are given, and if set to True then the most recent n graphs are displayed."""
+        """Displays a collection of n graphs. By default this method produces all the currently available graphs. 
+        If first is set to False (by default) then the most recent n graphs are given, and if set to True then the 
+        first n graphs are displayed. If display_region=True each included graph shades the region where the maximum value could
+        occur."""
 
 
-        # Determining the number of graphs to plot.  Up to 8 can be plotted in a single figure.
+        # Determining the total number of graphs.  Up to 8 can be plotted in a single figure.
         total_graphs=len(self.graphs)
-        
+        # By default the method displays all graphs.
         if n==None:
             n=total_graphs
         elif type(n)!=int:
@@ -463,7 +553,8 @@ class ApproximateMaxima:
         elif n<1:
             raise ValueError('n must be greater than 0.')
         elif n>total_graphs:
-            raise Warning('There are only {} graphs so only {} will be displayed.'.format(total_graphs,total_graphs))
+            print('Warning: There are only {} graphs so only {} will be displayed.'.format(total_graphs,total_graphs))
+            n=total_graphs
 
         # Determining the indices of the first and last graph to display.
         if first==True:
@@ -589,7 +680,8 @@ class ApproximateMaxima:
 class Graph:
     """
     Maintains four arrays. One for the known x values, one for the known y values, 
-    one for the x values where the function could reach a maximum on each interval, and one for the corresponding maximum y values."""
+    one for the x values where the function could reach a maximum on each interval, and one for the corresponding maximum y values.
+    Also records the maximum known y, the maximum possible y, and the latest point added."""
 
     def __init__(self, xs: np.array, ys:np.array, interval_x: np.array, interval_y: np.array,max_y,max_possible_y,latest_x=None,latest_y=None):
         self.known_x=xs
@@ -603,20 +695,30 @@ class Graph:
 
     def draw_to_axis(self, axis, display_region=False):
         """Draws the graph onto the target axis. The figure must still be shown to display."""
+
+        # Draw red, dashed, vertical lines at the ends of the intervals.
         axis.axvline(self.interval_x[0],color='red',linestyle='dashed')
         axis.axvline(self.interval_x[-1],color='red',linestyle='dashed')
+
+        # Plot the known points.
         axis.scatter(self.known_x,self.known_y, alpha=.95)
+
+        # If the latest point is included mark it with a diamond.
         if self.latest_x!=None:
-            axis.scatter(self.latest_x,self.latest_y, zorder=3,color='tab:blue', marker='D')
+            axis.scatter(self.latest_x,self.latest_y, zorder=3,color='navy', marker='D')
+
         # We now combine the interval and known points to create a line graph.
         zipped=zip(np.concatenate([self.interval_x,self.known_x]),np.concatenate([self.interval_y,self.known_y]))
         zipped=sorted(list(zipped))
         x,y= zip(*zipped)
         axis.plot(x,y, linestyle='dashed', alpha=.8)
         points_known=len(self.known_x)
+
+        # Shading the vertical region where the maxima could occur (if display_region=True). 
         if display_region==True:
             axis.axhspan(self.max_y,self.max_possible_y, alpha=.2, color='darkgrey')
 
+        # Labeling the axis.
         if points_known==1:
             axis.set_title("{} Point Known".format(points_known))
         else:
@@ -650,6 +752,7 @@ if __name__ == '__main__':
     """The class ApproximateMaxima provides a means to approximate the maximum value of an unknown function f, 
     defined on an interval [a,b], that satisfies a Lipschitz constraint M. i.e. if f is differentiable on [a,b] then 
     f'(x)< M for all x in the interval [a,b]."""
+    
     # Enter the interval and Lipschitz constant here.  All calculations will include the endpoints of the interval.
     interval=(0,1)
     lipschitz_constant=1
@@ -675,10 +778,11 @@ if __name__ == '__main__':
 
     approximation=ApproximateMaxima(interval,lipschitz_constant,sample_function='x*x*x-x*x')
     #approximate_maximum(interval, lipschitz_constant, number_of_x, function_type, adaptive,display_region=True)
-    approximation.add_n_points(5, 'sample')
+    approximation.add_n_points(5, 'sample',adaptive=True)
+    approximation.add_n_points(5, 'sample',adaptive=False)
     print(approximation.known_x)
 
-    approximation.display_graphs(3)
+    #approximation.display_graphs(3)
 
 
 
