@@ -238,7 +238,7 @@ class ApproximateMaxima:
             )
         return(y_low,y_high)
 
-    def get_y(self, x, x_index, function_type):
+    def _get_y(self, x, x_index, function_type):
         """Returns a y value for the selected x value using the given function type."""
 
 
@@ -294,7 +294,7 @@ class ApproximateMaxima:
             raise ValueError("The function type must be one of the strings 'manual', 'optimal', 'random', or 'sample'.")
 
 
-    def update_arrays(self, x, index, y):
+    def _update_arrays(self, x, index, y):
         """Takes an x and y value to insert in the known value arrays as well as an index in which to insert them, then updates
         all the arrays."""
 
@@ -347,10 +347,10 @@ class ApproximateMaxima:
             x_to_insert=self._get_manual_x()
 
         # Determining what the paired y value should be.
-        y_to_insert=self.get_y(*x_to_insert, function_type)
+        y_to_insert=self._get_y(*x_to_insert, function_type)
 
         # Updating the arrays.
-        self.update_arrays(*x_to_insert,y_to_insert)
+        self._update_arrays(*x_to_insert,y_to_insert)
 
         # Adding a graphable copy of the current arrays to the stored list.
         self._add_graph()
@@ -423,8 +423,8 @@ class ApproximateMaxima:
             # Adding the valid xs to the configuration.
             for x in valid_x:
                 x_to_insert=(x,np.searchsorted(self.known_x,x))
-                y_to_insert=self.get_y(*x_to_insert, function_type)
-                self.update_arrays(*x_to_insert,y_to_insert)
+                y_to_insert=self._get_y(*x_to_insert, function_type)
+                self._update_arrays(*x_to_insert,y_to_insert)
             
             # Since points were supposed to be added all at once we set the latest x and y to None.
             self.latest_x=None
@@ -519,10 +519,10 @@ class ApproximateMaxima:
 
         for x_to_insert in xs_to_add:
             # Determining what the paired y value should be.
-            y_to_insert=self.get_y(*x_to_insert, function_type)
+            y_to_insert=self._get_y(*x_to_insert, function_type)
 
             # Updating the arrays.
-            self.update_arrays(*x_to_insert,y_to_insert)
+            self._update_arrays(*x_to_insert,y_to_insert)
         
         # We have now added n points to the approximator.
         # Since points were supposed to be added all at once we set the latest x and y to None.
@@ -588,7 +588,7 @@ class ApproximateMaxima:
 
             # Drawing each of the graphs. 
             for i in range(len(axs)):
-                self.graphs[i+8*window+first_index].draw_to_axis(axs[i], display_region)
+                self.graphs[i+8*window+first_index].draw_to_ax(axs[i], display_region)
 
             # Setting the x and y limits of all the graphs on the current figure.
             plt.setp(axs, ylim=y_limits,xlim=x_limits)
@@ -619,7 +619,7 @@ class ApproximateMaxima:
             axs=axs.flatten()
             # Each graph is drawn.
             for i in range(n):
-                self.graphs[i+8*full_graphs+first_index].draw_to_axis(axs[i],display_region)
+                self.graphs[i+8*full_graphs+first_index].draw_to_ax(axs[i],display_region)
 
             # The excess axes are removed.
             for i in range(n,len(axs)):
@@ -636,7 +636,7 @@ class ApproximateMaxima:
         else:
             plt.figure(figsize=(10,5), num="{} Points Known".format(points_known))
         ax=plt.gca()
-        self.graphs[last_index].draw_to_axis(ax,display_region)
+        self.graphs[last_index].draw_to_ax(ax,display_region)
         plt.show()
 
     def get_known_pairs(self):
@@ -693,7 +693,7 @@ class Graph:
         self.latest_x=latest_x
         self.latest_y=latest_y
 
-    def draw_to_axis(self, axis, display_region=False):
+    def draw_to_ax(self, axis, display_region=False):
         """Draws the graph onto the target axis. The figure must still be shown to display."""
 
         # Draw red, dashed, vertical lines at the ends of the intervals.
