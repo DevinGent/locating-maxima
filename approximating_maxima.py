@@ -725,7 +725,7 @@ class Graph:
             ax.set_title("{} Points Known".format(points_known))
         
 
-def radius_of_information(greatest_max=None,least_max=None):
+def radius_of_information(greatest_max,least_max):
     """Returns the radius of information given the greatest possible maximum and the smallest possible maximum on the interval."""
         
     return (greatest_max-least_max)/2
