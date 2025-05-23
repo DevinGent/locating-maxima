@@ -693,36 +693,36 @@ class Graph:
         self.latest_x=latest_x
         self.latest_y=latest_y
 
-    def draw_to_ax(self, axis, display_region=False):
-        """Draws the graph onto the target axis. The figure must still be shown to display."""
+    def draw_to_ax(self, ax, display_region=False):
+        """Draws the graph onto the target ax. The figure must still be shown to display."""
 
         # Draw red, dashed, vertical lines at the ends of the intervals.
-        axis.axvline(self.interval_x[0],color='red',linestyle='dashed')
-        axis.axvline(self.interval_x[-1],color='red',linestyle='dashed')
+        ax.axvline(self.interval_x[0],color='red',linestyle='dashed')
+        ax.axvline(self.interval_x[-1],color='red',linestyle='dashed')
 
         # Plot the known points.
-        axis.scatter(self.known_x,self.known_y, alpha=.95)
+        ax.scatter(self.known_x,self.known_y, alpha=.95)
 
         # If the latest point is included mark it with a diamond.
         if self.latest_x!=None:
-            axis.scatter(self.latest_x,self.latest_y, zorder=3,color='navy', marker='D')
+            ax.scatter(self.latest_x,self.latest_y, zorder=3,color='navy', marker='D')
 
         # We now combine the interval and known points to create a line graph.
         zipped=zip(np.concatenate([self.interval_x,self.known_x]),np.concatenate([self.interval_y,self.known_y]))
         zipped=sorted(list(zipped))
         x,y= zip(*zipped)
-        axis.plot(x,y, linestyle='dashed', alpha=.8)
+        ax.plot(x,y, linestyle='dashed', alpha=.8)
         points_known=len(self.known_x)
 
         # Shading the vertical region where the maxima could occur (if display_region=True). 
         if display_region==True:
-            axis.axhspan(self.max_y,self.max_possible_y, alpha=.2, color='darkgrey')
+            ax.axhspan(self.max_y,self.max_possible_y, alpha=.2, color='darkgrey')
 
-        # Labeling the axis.
+        # Labeling the ax.
         if points_known==1:
-            axis.set_title("{} Point Known".format(points_known))
+            ax.set_title("{} Point Known".format(points_known))
         else:
-            axis.set_title("{} Points Known".format(points_known))
+            ax.set_title("{} Points Known".format(points_known))
         
 
 def radius_of_information(greatest_max=None,least_max=None):
