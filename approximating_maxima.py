@@ -14,7 +14,7 @@ import random
 
 
 
-class ApproximateMaxima:
+class Approximator:
     """
     Assuming f is a Lipschitz continuous function on the given interval and with the given Lipschitz constraint, 
     determines the optimal choices of x values to approximate the maximum value of f. 
@@ -749,7 +749,7 @@ def radius_of_information(greatest_max,least_max):
 
 
 if __name__ == '__main__':
-    """The class ApproximateMaxima provides a means to approximate the maximum value of an unknown function f, 
+    """The class Approximator provides a means to approximate the maximum value of an unknown function f, 
     defined on an interval [a,b], that satisfies a Lipschitz constraint M. i.e. if f is differentiable on [a,b] then 
     f'(x)< M for all x in the interval [a,b]."""
     
@@ -776,7 +776,7 @@ if __name__ == '__main__':
     # List any known points (this should be a list of pairs of the form (x,y))
     known=[(1,3),(3,5)]
 
-    approximation=ApproximateMaxima(interval,lipschitz_constant,sample_function='x*x*x-x*x')
+    approximation=Approximator(interval,lipschitz_constant,sample_function='x*x*x-x*x')
     #approximate_maximum(interval, lipschitz_constant, number_of_x, function_type, adaptive,display_region=True)
     approximation.add_n_points(5, 'sample',adaptive=True)
     approximation.add_n_points(5, 'sample',adaptive=False)

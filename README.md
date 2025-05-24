@@ -1,5 +1,8 @@
 # Approximating Maxima of Lipschitz Continuous Functions
 
+This project is intended as an extension of an article I wrote during my undergraduate education. 
+Suppose $f$ is a Lipschitz contino
+
 ## Introduction
 
 ### Lipschitz Continuity
