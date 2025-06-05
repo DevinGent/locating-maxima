@@ -113,6 +113,7 @@ Given a string representing an approach for selecting $y$-values, `function_type
 | `'optimal'` | Each $y$-value will be selected to maximize the radius of information and weaken the approximation. |
 | `'random'` | Each $y$-value will be selected at random while adhering to the Lipschitz constraint. |
 | `'sample'` | Each $y$-value will be selected according to the `sample_function` defined when the Approximator was created. |
+
 [!CAUTION]
 Use of the function type `'sample'` can result in errors when the Approximator already has known points achieved using a different function type or user entered starting points.
 
