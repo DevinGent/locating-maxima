@@ -241,12 +241,14 @@ class Approximator:
     def _get_y(self, x, x_index, function_type):
         """Returns a y value for the selected x value using the given function type."""
 
+        # Set the function_type to lower case.
+        function_type=function_type.lower()
 
         # Determining what the legal range of y values is for the given x.
         legal_y=self._legal_y(x,x_index)
 
         # The choice of y is determined by the function type.
-        if function_type=='sample':   
+        if function_type=='sample' or function_type=='s':   
             # If no sample function has been defined we raise an exception.
             if self.sample_function==None:
                 raise Exception("A sample function must be given before it can be used.")
@@ -260,7 +262,7 @@ class Approximator:
                 else:
                     return new_y
             
-        elif function_type=='optimal':
+        elif function_type=='optimal' or function_type=='o':
             # If no points are currently known we choose at random in the range between -50 and 50.
             if len(self.known_y)==0:
                 return random.uniform(-50,50)
@@ -269,7 +271,7 @@ class Approximator:
             return min(self.max_y,legal_y[1])
 
                 
-        elif function_type=='random':
+        elif function_type=='random' or function_type=='r':
             # If no points are currently known we choose at random in the range between -50 and 50.
             if len(self.known_y)==0:
                 return random.uniform(-50,50)
@@ -277,7 +279,7 @@ class Approximator:
                 # Return a random number in the legal range.
                 return random.uniform(*legal_y)
         
-        elif function_type=='manual':
+        elif function_type=='manual' or function_type=='m':
             while True:
                 user_input=input("Enter a y value (between {} and {}), as a decimal, for x={}".format(legal_y[0],legal_y[1],x))
                 try:
@@ -360,7 +362,7 @@ class Approximator:
         self.results_df.loc[index]=new_row
 
 
-    def add_n_points(self, n: int, function_type, adaptive=True):
+    def add_n_points(self, n: int, function_type: str, adaptive=True):
         """Work through the process of adding n more points optimally. If adaptive=True each x value is chosen one at a time.
         If adaptive=False all the x values are chosen at once and then the corresponding y values are chosen.
         
@@ -382,7 +384,7 @@ class Approximator:
                     print(f"The maximum value of the function on {list(self.interval)} has been found. It is {self.max_y}.")
                     break
 
-    def add_points_manually(self, function_type, user_x=1):
+    def add_points_manually(self, function_type: str, user_x=1):
         """Add points to the configuration using user selected x. 
         
         function_type must be one of the strings 'manual', 'optimal', 'random', or 'sample'. 

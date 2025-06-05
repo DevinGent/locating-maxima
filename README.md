@@ -6,7 +6,7 @@ This README is focused on explaining the use of the script `approximating_maxima
 
 After finishing this document refer to the Jupyter Notebook `tutorial.ipynb` to see the script `approximating_maxima.py` in use and to walk through the process of creating an approximator, adding points, and displaying the result.
 
-![An example of the results produced.](visuals/sample1.png)
+![An example of the results produced.](visuals/sample_figure.png)
 
 ## Table of Contents
 - [Introduction](#introduction)
@@ -91,10 +91,58 @@ When creating a Approximator object the optional argument `sample_function` can 
 | Your function should be formatted Pythonically. | `"pow(x,4)"` or `'math.tan(x)'` | `"x^4"` or `"tan(x)"` |
 | Your function should be Lipschitz continuous on the given interval and with the given constraint. | `"x*x"` with interval `[0,5]` and constraint `10`  | `"x*x"` with interval `[0,7]` and constraint `10` or with interval `[0,5]` and constraint `3` |
 
+### Graphs
+
+For each set of points added to an Approximator a Graph object is added to the list `graphs`. Each Graph includes much of the information described in [Instance Variables](#instance-variables) as well as the important method `draw_to_ax`.  This method draws the Graph's set of known $x$ and $y$-values onto a specified ax using Matplotlib.pyplot. For examples of how to display individual Graphs using this method please see the tutorial included in this repository.
+
+### Initiating with Starting Points
+
+When an Approximator class object is declared the user can optionally include a list of $(x,y)$ pairs as known points.  The list of points should be selected to satisfy the Lipschitz constraint.
 ## Methods
 
 This section describes the various methods of the class `Approximator` from `approximating_maxima.py`.
 
+### `add_n_points`
+
+Given a string representing an approach for selecting $y$-values, `function_type`, this method optimally chooses $n$ new $x$-values to improve the approximation. The available types are `'manual'`, `'optimal'`, `'random'`, and `'sample'`. Their behavior is described in the following table.
+
+#### Function Types
+| Function Type | Description |
+| ----- | ----- |
+| `'manual'` | The user will be prompted to enter a $y$-value for each $x$ selected. |
+| `'optimal'` | Each $y$-value will be selected to maximize the radius of information and weaken the approximation. |
+| `'random'` | Each $y$-value will be selected at random while adhering to the Lipschitz constraint. |
+| `'sample'` | Each $y$-value will be selected according to the `sample_function` defined when the Approximator was created. |
+[!CAUTION]
+Use of the function type `'sample'` can result in errors when the Approximator already has known points achieved using a different function type or user entered starting points.
+
+The optional argument `adaptive` (set to True by default) of the method `add_n_points` controls whether the $x$-values are selected simultaneously before $y$-values or alternating with the choice of $y$-values [as described](#adaptive) in the introduction.
+
+#### Adaptive Versus Non-Adaptive
+
+The adaptive and non-adaptive approaches represent two distinct versions of the problem explored in this project (choosing $x$-values to evaluate at to approximate the maximum value of a Lipschitz continuous function). When used in actual practice and compared against each other one approach will outperform the other depending on numerous factors.  When nature chooses $y$-values optimally the non-adaptive approach to choosing $x$-values will always produce the best results.  Further, the non-adaptive approach can leverage full knowledge of how many points in total will be added to distribute the choice of $x$-values across the interval optimally.  Conversely the adaptive method can perform better when nature chooses non-optimally by dynamically reacting and selecting additional $x$-values where a maximum could occur.  In the following figure the adaptive and non-adaptive methods are compared when nature chooses $y$-values optimally and when nature chooses points non-optimally (in this case using the function $y=3-(x-2)^2$).  Notice how the balanced configuration chosen using the non-adaptive approach produces a better result than the adaptive approach when nature chooses optimally, but the adaptive approach out-performs it when nature chooses in an imbalanced way. In each case the radius of information will always be maximized (the approximation will be worse) when nature chooses optimally.
+
+![An example of selecting adaptively vs non-adaptively.](visuals/adaptive_vs_nonadaptive.png)
+
+### `add_points_manually`
+
+This method adds points to the Approximator using $x$-values selected by the user.  The user can enter either a list of $x$-values to add or an integer representing the number of $x$-values to select.  In the second case the user will then be prompted to enter $x$-values into the console one by one.  The $y$-values will be selected according to the parameter `function_type` with the types outlined in the table [Function Types](#function-types).
+
+### `display_graphs`
+
+This method displays plots for each of the stored Graphs from the Approximator's `graphs` list to demonstrate the improvement of the approximation as more points are added.  By default all the recorded Graphs are displayed, but the user can opt to display only the first or last $n$ as desired. The optional argument `display_region` can be used to shade the vertical region where the maximum could occur for each displayed plot.
+
+### `get_known_pairs`
+
+Returns a list of $(x,y)$ pairs representing all the known points.  
+
+### `get_optimal_x`
+
+Produces a pair of the form (new $x$-coordinate, index in which to insert it in `known_x`) where $x$ is chosen optimally. This method can be used to obtain the optimal choice of $x$ without having to add a new point to the Approximator.
+
+### `revert_to_state`
+
+An experimental method which takes the index of one of the Graphs in `graphs` and reverts the current Approximator to this previous state. Can be used to correct issues if points were added incorrectly.
 
 ## Other Content 
 
